@@ -1,7 +1,7 @@
 import sys
-sys.path.insert(0,"/Users/mattiasbirman/Scolaire/Phenodatadriven/PhenoSearch/utils")
+sys.path.insert(0,"utils")
 from myconfig import *
-from myutils import *
+from myfunctions import *
 ##
 import numpy as np
 import matplotlib as mpl
@@ -100,8 +100,8 @@ def main():
     #         PlotMatrix(c,c.LHC_DATASETS[curr_dataset_index, 0, :, :], 'The signal and background of the measurement number 0',x_axis=c.X_AXIS,y_axis=c.Y_AXIS)
     #         PlotMatrix(c,c.LHC_DATASETS[curr_dataset_index, c.NUMBER_OF_LHC_MEASUREMENTS_IN_DATASET - 1, :, :], 'The signal and background of the measurement number ' + str(c.NUMBER_OF_LHC_MEASUREMENTS_IN_DATASET - 1),x_axis=c.X_AXIS,y_axis=c.Y_AXIS)
     print(c.LHC_DATASETS.shape)
-    np.save("gen_data",c.LHC_DATASETS)
-    test=np.load("gen_data.npy")
+    np.save("test_gen_data",c.LHC_DATASETS)
+    test=np.load("test_gen_data.npy")
     print(test.shape)
 
     # ## ------ Plots some statistics of the generated datasets

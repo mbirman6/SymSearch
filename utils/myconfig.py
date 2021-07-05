@@ -71,7 +71,8 @@ class myconfig():
         ## ------ Background template settings
         self.SHOULD_LOAD_TEMPLATE = True #False # True
         self.LOAD_TEMPLATE_FILE_NAME = 'em_reco_none_Mcoll_Lep0Pt_28_28_no_signal.npz'
-        GDRIVE_TEMPLATE_PATH="/Users/mattiasbirman/Scolaire/Phenodatadriven/PhenoSearch/fromOphir/Templates"
+        # GDRIVE_TEMPLATE_PATH="/Users/mattiasbirman/Scolaire/Phenodatadriven/PhenoSearch/fromOphir/Templates"
+        GDRIVE_TEMPLATE_PATH="fromOphir/Templates"
         # Checks if template should be loaded or just generate a flat one (i.e constant Poisson parameter)
         if (self.SHOULD_LOAD_TEMPLATE == True):
             # If a template should be loaded
@@ -97,7 +98,7 @@ class myconfig():
 
         ## ------ Definition and generation of LHC datasets
         # Define the total number of matrices in each sample (regular_1, regular_2, regular_3, with_signal_gaussian, with_signal_rectangle)
-        self.NUMBER_OF_LHC_MEASUREMENTS_IN_DATASET = 10000
+        self.NUMBER_OF_LHC_MEASUREMENTS_IN_DATASET = 100
         self.LHC_DATASET_ID = 'LHC Dataset ID'
         self.LHC_DATASET_TYPE = 'LHC Dataset Type'
         self.BACKGROUND_ONLY_DATASET = 'Background Only '

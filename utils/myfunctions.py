@@ -1,7 +1,5 @@
 import os
 from shutil import copyfile
-import sys
-sys.path.insert(0,"/Users/mattiasbirman/Scolaire/Phenodatadriven/PhenoSearch/utils")
 from myconfig import *
 ##
 import numpy as np

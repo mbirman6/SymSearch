@@ -1,0 +1,9 @@
+fromOphir
+.ipynb_checkpoints/
+utils/__pycache__
+*.pdf
+*.txt
+*.npz
+*.npy
+*~
+*pyc

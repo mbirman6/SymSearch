@@ -37,7 +37,6 @@ signal_types=['rect-lowstat','rect-higstat','gaus-lowstat','gaus-higstat']
 def main():
     ##### -------------------------------------------- GENERATE SAMPLES + STATS -------------------
     for template_type in template_types:
-        print(">>>> Template-type \'%s\'"%template_type)
         c=myconfig()
         c.debug=False
         ## Configure template
@@ -47,7 +46,7 @@ def main():
         c.SHOULD_LOAD_TEMPLATE=True if template_type=='simul' else False
         c.get_template()
         ## Generate Ntrain bkg-only matrices for training
-        print("  >> Generating %s bkg-only matrices for training"%Ntrain)
+        print(">>> Generating %s bkg-only matrices for training with template-type \'%s\'"%(Ntrain,template_type))
         c.NUMBER_OF_LHC_MEASUREMENTS_IN_DATASET=Ntrain
         c.NUM_OF_DIFFERENT_LHC_DATASETS=1
         c.LHC_DATASETS_PROPERTIES=[{
@@ -58,11 +57,9 @@ def main():
         savedata=np.squeeze(c.LHC_DATASETS)
         fname="gendata_template-%s_train.npy"%template_type
         np.save(fname,savedata)
-        print("     Saved in \'%s\', shape = "%fname,savedata.shape)
+        print("    Saved in \'%s\', shape = "%fname,savedata.shape)
         ## Loop on signal types
-        print("  >> Generating %s pairs of bkg-only/bkg+sig matrices for validation/testing"%Ntest)
         for signal_type in signal_types:
-            print("   - Signal-type \'%s\'"%signal_type)
             ## Configure signal
             if 'rect' in signal_type:
                 shape=c.RECTANGLE_SHAPE
@@ -81,6 +78,7 @@ def main():
                 c.MEAN_VALUES:means,
                 c.STD_VALUES:stds}]
             ## Generate Ntest pairs of bkg-only/bkg+sig matrices for validation/testing
+            print("  >> Generating %s pairs of bkg-only/bkg+sig matrices for validation/testing with template-type \'%s\' and signal-type \'%s\'"%(Ntest,template_type,signal_type))
             c.NUMBER_OF_LHC_MEASUREMENTS_IN_DATASET=Ntest
             c.NUM_OF_DIFFERENT_LHC_DATASETS=2
             c.LHC_DATASETS_PROPERTIES=[
@@ -101,8 +99,7 @@ def main():
             # print(np.sum(savedata[0]),np.sum(savedata[1]))
             fname="gendata_template-%s_signal-%s_test.npy"%(template_type,signal_type)
             np.save(fname,savedata)
-            print("     Saved in \'%s\', shape = "%fname,savedata.shape)
+            print("    Saved in \'%s\', shape = "%fname,savedata.shape)
     
 if __name__=="__main__":
     main()
-

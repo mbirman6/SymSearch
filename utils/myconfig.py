@@ -28,6 +28,7 @@ from textwrap import fill
 
 class myconfig():
     def __init__(self):
+        self.debug=True
         ###### ------------ CONFIG ---------------- ##########
         SEED_VALUE = 42
         np.random.seed(SEED_VALUE) # For debug - random processes in code will yield the same results each run
@@ -71,30 +72,6 @@ class myconfig():
         ## ------ Background template settings
         self.SHOULD_LOAD_TEMPLATE = True #False # True
         self.LOAD_TEMPLATE_FILE_NAME = 'em_reco_none_Mcoll_Lep0Pt_28_28_no_signal.npz'
-        # GDRIVE_TEMPLATE_PATH="/Users/mattiasbirman/Scolaire/Phenodatadriven/PhenoSearch/fromOphir/Templates"
-        GDRIVE_TEMPLATE_PATH="fromOphir/Templates"
-        # Checks if template should be loaded or just generate a flat one (i.e constant Poisson parameter)
-        if (self.SHOULD_LOAD_TEMPLATE == True):
-            # If a template should be loaded
-            # Sets the amount of entries the template will be shifted by
-            self.SHIFT_TEMPLATE_BY_NUM_OF_ENTRIES = 25
-            # Gets the full path name of the template
-            template_full_path = GDRIVE_TEMPLATE_PATH + '/' + self.LOAD_TEMPLATE_FILE_NAME
-            # Copies it to local disk
-            print("myconfig: Copying background template %s"%self.LOAD_TEMPLATE_FILE_NAME)
-            copyfile(template_full_path,"./%s"%self.LOAD_TEMPLATE_FILE_NAME)
-            # Loads the file that contains the template
-            template_file = np.load(self.LOAD_TEMPLATE_FILE_NAME) #dict(np.load(LOAD_RESULTS_FILE_NAME))
-            # Gets the template
-            self.BACKGROUND_ONLY_TEMPLATE_noshift = np.copy(template_file['entries'])
-            # Shifts the template
-            self.BACKGROUND_ONLY_TEMPLATE = self.BACKGROUND_ONLY_TEMPLATE_noshift + self.SHIFT_TEMPLATE_BY_NUM_OF_ENTRIES
-        elif (self.SHOULD_LOAD_TEMPLATE == False):
-            # If a template should be generated
-            # Sets the constant poisson parameter for all the bins
-            self.POISSON_PARAMETER = 100
-            # Sets the template
-            self.BACKGROUND_ONLY_TEMPLATE = self.POISSON_PARAMETER * np.ones((self.DIM_OF_MATRIX, self.DIM_OF_MATRIX)) 
 
         ## ------ Definition and generation of LHC datasets
         # Define the total number of matrices in each sample (regular_1, regular_2, regular_3, with_signal_gaussian, with_signal_rectangle)
@@ -283,4 +260,52 @@ class myconfig():
         self.SHOULD_SAVE_RESULTS = True
         self.SAVE_RESULTS_FILE_NAME = 'Poisson_100_background_Diff_test_likelihood_signals' # 'Poisson_100_background_Diff_test_likelihood_signals' #'Poisson_100_background_Diff_test_new' #'Poisson_100_background_NSigma_test_new' # 'em_reco_none_no_signal_NSigma_test' 'em_reco_none_no_signal_NSigma_test_likelihood_signals'
         self.MIDDLE_BACKUP_EVERY = 2000 # iterations
-        print(self.SAVE_RESULTS_FILE_NAME)
+        # print(self.SAVE_RESULTS_FILE_NAME)
+
+    def get_template(self):
+        GDRIVE_TEMPLATE_PATH="fromOphir/Templates"
+        # Checks if template should be loaded or just generate a flat one (i.e constant Poisson parameter)
+        if (self.SHOULD_LOAD_TEMPLATE == True):
+            # If a template should be loaded
+            # Sets the amount of entries the template will be shifted by
+            self.SHIFT_TEMPLATE_BY_NUM_OF_ENTRIES = 25
+            # Gets the full path name of the template
+            template_full_path = GDRIVE_TEMPLATE_PATH + '/' + self.LOAD_TEMPLATE_FILE_NAME
+            # Copies it to local disk
+            if self.debug:
+                print("myconfig: Copying background template %s"%self.LOAD_TEMPLATE_FILE_NAME)
+            copyfile(template_full_path,"./%s"%self.LOAD_TEMPLATE_FILE_NAME)
+            # Loads the file that contains the template
+            template_file = np.load(self.LOAD_TEMPLATE_FILE_NAME) #dict(np.load(LOAD_RESULTS_FILE_NAME))
+            # Gets the template
+            self.BACKGROUND_ONLY_TEMPLATE_noshift = np.copy(template_file['entries'])
+            # Shifts the template
+            self.BACKGROUND_ONLY_TEMPLATE = self.BACKGROUND_ONLY_TEMPLATE_noshift + self.SHIFT_TEMPLATE_BY_NUM_OF_ENTRIES
+            # Happens in config
+            if self.debug:
+                template_file = np.load(self.LOAD_TEMPLATE_FILE_NAME)
+                template_min = np.min(template_file['entries'])
+                template_max = np.max(template_file['entries'])
+                print("\n>>>> ------ Background template settings")
+                # Plots information about the template
+                print('The samples included in it are: ', template_file['samples'])
+                print('The data SHAPE for each property of this measurement is: ' + ' entries: ', template_file['entries'].shape, 
+                        ', errors: ', template_file['errors'].shape, ', edges: ', template_file['edges'].shape)
+                print('The data TYPE for each property of this measurement is: ' + ' entries: ', template_file['entries'].dtype, 
+                        ', errors: ', template_file['errors'].dtype, ', edges: ', template_file['edges'].dtype)
+                print('\nHere is some statistical information about the sample:')
+                print('------------------------------------------------------')
+                print('Total entries: ' + str(np.sum(template_file['entries'])) + ' +\- ' + str(np.sqrt(np.sum(np.square(template_file['errors'])))))
+                print('Min entry: ', template_min)
+                print('Max entry: ', template_max)
+                print('Median entry: ', np.median(template_file['entries']))
+                print('Mean entry +\- Std: ', np.mean(template_file['entries']), '+\-', np.std(template_file['entries']))
+                print('Indices of bins with zero entries: ', np.argwhere(template_file['entries'] == 0))
+        elif (self.SHOULD_LOAD_TEMPLATE == False):
+            # If a template should be generated
+            # Sets the constant poisson parameter for all the bins
+            self.POISSON_PARAMETER = 100
+            # Sets the template
+            self.BACKGROUND_ONLY_TEMPLATE = self.POISSON_PARAMETER * np.ones((self.DIM_OF_MATRIX, self.DIM_OF_MATRIX)) 
+
+        

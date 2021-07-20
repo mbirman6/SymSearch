@@ -135,9 +135,10 @@ def CreateSignalShapesDensities(c):
     for curr_signal_shape_index in range(num_of_different_signals):
         # Gets the current signal shape properties
         curr_signal_shape_properties=signal_properties_records[curr_signal_shape_index]
-        print('This is a signal Number '+str(curr_signal_shape_index)+' in a '+curr_signal_shape_properties[c.BASE_SHAPE]+'.')
-        print('Its MEAN values are: ',curr_signal_shape_properties[c.MEAN_VALUES],'.')
-        print('Its STD values are: ',curr_signal_shape_properties[c.STD_VALUES],'.')
+        if c.debug:
+            print('This is a signal Number '+str(curr_signal_shape_index)+' in a '+curr_signal_shape_properties[c.BASE_SHAPE]+'.')
+            print('Its MEAN values are: ',curr_signal_shape_properties[c.MEAN_VALUES],'.')
+            print('Its STD values are: ',curr_signal_shape_properties[c.STD_VALUES],'.')
     curr_signal_shape_mean_X=curr_signal_shape_properties[c.MEAN_VALUES][0]
     curr_signal_shape_std_X=curr_signal_shape_properties[c.STD_VALUES][0]
     curr_signal_shape_mean_Y=curr_signal_shape_properties[c.MEAN_VALUES][1]
@@ -215,7 +216,7 @@ def CalcMinusq0(mu,X,R,S):
     sum_result=np.sum(sum_part)
     equation_value=-2*(sum_result-mu)
     return equation_value
-def CreateLHCDatasets(c,idx=''):
+def CreateLHCDatasets(c,idx='',usesamebkg=False):
     if idx!='':
         lhc_datasets_properties_records=c.LHC_DATASETS_PROPERTIES[idx:idx+1]
     else:
@@ -232,10 +233,12 @@ def CreateLHCDatasets(c,idx=''):
                                                 number_of_measurements_in_dataset,axis=0)
     underlying_distribution_matrix=np.repeat(underlying_distribution_matrix[np.newaxis,:,:,:],
                                                 num_of_different_lhc_datasets,axis=0)
-    print('underlying_distribution_matrix.shape',underlying_distribution_matrix.shape)
+    if c.debug:
+        print('underlying_distribution_matrix.shape',underlying_distribution_matrix.shape)
     # Define the primary matrices in the LHC measurements datasets (i.e only background contribution)
     LHC_measurements_datasets=np.float32(np.random.poisson(underlying_distribution_matrix))
-    print('LHC_measurements_datasets.shape',LHC_measurements_datasets.shape)
+    if c.debug:
+        print('LHC_measurements_datasets.shape',LHC_measurements_datasets.shape)
     # Initializes the signal strength (\mu) of all the measurements
     mu_magnitudes_of_measurements=np.zeros((num_of_different_lhc_datasets,number_of_measurements_in_dataset))
     mu_detected_sanity_check=np.zeros((num_of_different_lhc_datasets,number_of_measurements_in_dataset))
@@ -261,7 +264,10 @@ def CreateLHCDatasets(c,idx=''):
             if (curr_dataset_properties[c.POISSON_TIMING]==c.BEFORE_SIGNAL_ADDITION):
                 # If the signal should be added AFTER Poisson dice of background
                 # Gets the LHC measurements in the current dataset
-                curr_dataset_LHC_measurements=LHC_measurements_datasets[curr_dataset_index,:,:,:]
+                if usesamebkg:
+                    curr_dataset_LHC_measurements=LHC_measurements_datasets[0,:,:,:]
+                else:
+                    curr_dataset_LHC_measurements=LHC_measurements_datasets[curr_dataset_index,:,:,:]
                 # Checks in which method the signal should be set
                 if (curr_dataset_properties[c.SIGNAL_GEN_METHOD]==c.LIK_METHOD):
                     # If the signal should be set using the likelihood method

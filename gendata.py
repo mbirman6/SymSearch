@@ -28,13 +28,10 @@ from scipy.stats import norm
 from datetime import datetime
 from textwrap import fill
 
+# for i in 1-Ntest: Ai vs Bi  -> pdf bkg-only
+# for i in 1-Ntest: Ai vs Ci = Bi + sig  -> pdf bkg+sig
 
-Ntrain=100
-Ntest=10
-template_types=['simul','flat']
-signal_types=['rect-lowstat','rect-higstat','gaus-lowstat','gaus-higstat']
-
-def main():
+def main(Ntest,Ntrain,template_types,signal_types):
     ##### -------------------------------------------- GENERATE SAMPLES + STATS -------------------
     for template_type in template_types:
         print(">>>> Template-type \'%s\'"%template_type)
@@ -104,5 +101,9 @@ def main():
             print("     Saved in \'%s\', shape = "%fname,savedata.shape)
     
 if __name__=="__main__":
-    main()
+    Ntest=10
+    Ntrain=100+Ntest # = 100 train + 10 test and validation
+    template_types=['simul','flat']
+    signal_types=['rect-lowstat','rect-higstat','gaus-lowstat','gaus-higstat']
+    main(Ntest,Ntrain,template_types,signal_types)
 

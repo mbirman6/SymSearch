@@ -23,12 +23,13 @@ def main():
     yaxis=[10e3+k*5e3 for k in range(29)]
     increase_entries=25
     increase_entries=0
+    cuts={'Mcoll':[30e3,170e3],'Lep0Pt':[10e3,150e3]}
     ## Get ratio of vbfH vs ggH signal events
     lumi_ggh=390.032
     lumi_vbf=6707.808
     print("generated luminosities for ggh / vbfh in ifb:",lumi_ggh,"/",lumi_vbf)
-    sig_ggh_data=get_array(columns,data_path_sig_ggh,isSig=1)
-    sig_vbf_data=get_array(columns,data_path_sig_vbf,isSig=1)
+    sig_ggh_data=get_array(columns,data_path_sig_ggh,cuts,isSig=1)
+    sig_vbf_data=get_array(columns,data_path_sig_vbf,cuts,isSig=1)
     print("total number of ggh /vbfh events:",sig_ggh_data.shape[0],"/",sig_vbf_data.shape[0])
     n_ggh=sum([(30e3<l[0]<170e3 and 10e3<l[1]<150e3) for l in sig_ggh_data])
     n_vbf=sum([(30e3<l[0]<170e3 and 10e3<l[1]<150e3) for l in sig_vbf_data])
@@ -45,7 +46,7 @@ def main():
     sig_tpl=sig_tot/np.sum(sig_tot)
     # MatrixPlot(sig_tpl,title="Signal template").showplot()
     ## Get background-only matrices
-    bkg_data=get_array(columns,data_path_bkg,isSig=0)
+    bkg_data=get_array(columns,data_path_bkg,cuts,isSig=0)
     print("total number of background events",bkg_data.shape[0])
     bkg=get_matrix(bkg_data,xaxis,yaxis,add_entries=increase_entries)
     # MatrixPlot(bkg,title="Background events").showplot()
@@ -156,15 +157,21 @@ def get_matrix(data,xaxis,yaxis,add_entries=0):
     # MatrixPlot(H).showplot()
     return M+add_entries
     
-def get_array(columns,data_path,isSig):
+def get_array(columns,data_path,cuts,isSig):
     ## headers=['Lep0Pt', 'Lep0Eta', 'Lep0Phi', 'Lep1Pt', 'Lep1Eta', 'Lep1Phi', 'MET', 'METPhi', 'MLL', 'MLep0MET', 'MLep1MET', 'Mcoll', 'isSig']
+    ## cuts={column:[min,max]}, use min==max for specified value
     headers,data=csv2np(data_path)
-    n=0
-    for l in data:
-        # n+=(l[-1]==0 and 10e3<l[0]<150e3 and 30e3<l[11]<170e3)
-        n+=(l[-1]==0 and l[11]<170e3)
-    col_idxs=[headers.index(name) for name in columns]
+    ## apply cuts
+    rows2del=[]
+    for i,row in enumerate(data):
+        for col,[m,M] in cuts.items():
+            j=headers.index(col)
+            if (m==M and data[i,j]!=m) or (m!=M and not (m<data[i,j]<M)):
+                rows2del.append(i)
+                continue
+    data=np.delete(data,rows2del,axis=0)
     ## select only rows where last column==isSig, keep only columns specified
+    col_idxs=[headers.index(name) for name in columns]
     data=data[np.ix_(data[:,-1]==isSig,col_idxs)]
     return data
 

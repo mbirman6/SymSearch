@@ -8,3 +8,9 @@ utils/__pycache__
 *~
 *pyc
 Untitled*
+SignalChallenge
+gan
+ophircode
+scripts/plots*
+scripts/datasets
+scripts/*json

@@ -91,7 +91,8 @@ def main():
         if n_sig_ggh>n_sig_ggh_tot or n_sig_vbf>n_sig_vbf_tot:
             print(Problem)
         ## Get sig and bkg+sig matrix
-        print(bug number of events less than measured)
+        print('bug number of events less than measured')
+        input()
         sig_ggh=get_matrix(sig_ggh_data[:n_sig_ggh,:],xaxis,yaxis)
         sig_vbf=get_matrix(sig_vbf_data[:n_sig_vbf,:],xaxis,yaxis)
         sig=sig_ggh+sig_vbf

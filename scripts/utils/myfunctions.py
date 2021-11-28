@@ -4,21 +4,21 @@ from plots3 import *
 import numpy as np
 import matplotlib.pyplot as plt
 from iminuit import minimize,Minuit
-
 from scipy.optimize import curve_fit, fsolve#, minimize
 from scipy.integrate import quad
 from scipy.stats import norm
+import numba as nb
 
-xaxis=[30,35,40,45,50,55,60,65,70,75,80,85,90,95,100,105,110,115,120,125,130,135,140,145,150,155,160,165,170]
-yaxis=[10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100,105,110,115,120,125,130,135,140,145,150]
+txaxis=[30,35,40,45,50,55,60,65,70,75,80,85,90,95,100,105,110,115,120,125,130,135,140,145,150,155,160,165,170]
+tyaxis=[10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100,105,110,115,120,125,130,135,140,145,150]
 def idx_fromval(val,axis):
     return int((val-axis[0])*1./5)
 def idxs_fromvals(vals):
-    return [idx_fromval(vals[0],xaxis),idx_fromval(vals[1],yaxis)]
+    return [idx_fromval(vals[0],txaxis),idx_fromval(vals[1],tyaxis)]
 def val_fromidx(idx,axis):
     return idx*5.+axis[0]
 def vals_fromidxs(idxs):
-    return [val_fromidx(idxs[0],xaxis),val_fromidx(idxs[1],yaxis)]
+    return [val_fromidx(idxs[0],txaxis),val_fromidx(idxs[1],tyaxis)]
     
 # def get_templates(addentries_emu,entries_flat):
 #     dct={}
@@ -209,89 +209,87 @@ def perform_lik_test(bkgsA,bkgsB,sigtpl):
         signifs.append(z)
     return scores,pvalues,signifs,sigmus
 
-# def CalcMinusq0_new(x,B,A,S):
-#     mu=x[0]
-#     b=x[1:].reshape(A.shape)
-# def CalcMinusq0_new(mu,b,B,A,S):
-#     q0=-2*totsum(mu*S+2*b+(A+B)*(np.log(A+B)-1)-A*np.log(2*b)-B*np.log(2*(b+mu*S)))
-#     # print(mu,q0)
-#     return -q0
 A=0
 B=0
 S=0
+nbins=28
+@nb.njit(parallel=False,fastmath=True)
 def CalcMinusq0_new(x):#,B,A,S):
     mu=x[0]
-    b=x[1:].reshape(A.shape)
-    # print(mu,totsum(b),totsum(A),totsum(B),totsum(np.log(A+B)),totsum(np.log(2*b)),totsum(np.log(2*(b+mu*S))))
-    q0=-2*totsum(mu*S+2*b+(A+B)*(np.log(A+B)-1)-A*np.log(2*b)-B*np.log(2*(b+mu*S)))
+    b=x[1:]#.reshape((nbins,nbins))
+    q0=-2*np.sum(mu*S+2*b+(A+B)*(np.log(A+B)-1)-A*np.log(2*b)-B*np.log(2*(b+mu*S)))
     # print(mu,q0)
     return -q0
-# def CalcMinusq0_new(b):
-#     b=b.reshape(28,28)
-#     q0=np.sum(b)
-#     # print(mu,q0)
-#     return -q0
 
-def perform_lik_test_new(bkgsA,bkgsB,sigtpl):
+# class negq0():
+#     def __init__(self,A,B,S):
+#         self.A=A
+#         self.B=B
+#         self.S=S
+#     def calc_negq0(self,x):
+#         A=self.A
+#         B=self.B
+#         S=self.S
+#         mu=x[0]
+#         b=x[1:].reshape((nbins,nbins))
+#         q0=-2*np.sum(mu*S+2*b+(A+B)*(np.log(A+B)-1)-A*np.log(2*b)-B*np.log(2*(b+mu*S)))
+#         return -q0
+    
+def perform_lik_test_new(bkgsA,bkgsB,sigtpl,selectbins=np.array(())):
     global A
     global B
     global S
-    S=sigtpl
+    global nbins
+    if selectbins.any():
+        S=sigtpl[selectbins]
+        nbins=S.shape[0]
+    else:
+        nbins=sigtpl.shape[0]
+        S=sigtpl.reshape((1,nbins**2)).squeeze(axis=0)
     scores=[]
     pvalues=[]
     signifs=[]
     sigmus={'tot':[],'1sA':[],'restA':[],'1sB':[],'restB':[]}
     for bA,bB in zip(bkgsA,bkgsB):
-        A=bA
-        B=bB
-        ## Initialize guesses
-        initmu=np.sum(bB-bA)
-        print(initmu)
-        initbs=(bA+bB)/2
-        initbs=initbs.reshape((1,28*28)).squeeze()
+        if selectbins.any():
+            A=bA[selectbins]
+            B=bB[selectbins]
+        else:
+            A=bA.reshape((1,nbins**2)).squeeze(axis=0)
+            B=bB.reshape((1,nbins**2)).squeeze(axis=0)
+        ## Fit parameters initial guess
+        initmu=np.sum(B-A)
+        initbs=(A+B)/2
         initvals=np.concatenate((np.array((initmu,)),initbs))
-        # minres=minimize(CalcMinusq0_new,initvals,options={'gtol': 1e-5, 'disp': True})
-        #                     # ,method='Nelder-Mead')#,args=(bB,bA,sigtpl))#,options=("disp"=False,"stra"=0))
-        # print(minres['success'],minres['message'],minres['x'][0],minres['fun'])
-        # # exit()
-
-        names=["mu"]+["b%s"%i for i in range(28*28)]
-        m=Minuit.from_array_func(CalcMinusq0_new,initvals,name=names,error=1,errordef=0.5)#,initbs,bB,bA,sigtpl)
-        m.print_level=2
-        m.migrad()#precision=0.01)
-        # m.limits["mu"]=(0,None)
-        # # for i in range(11,28*28):
-        # #     m.fixed["b%s"%i]
-        # m.migrad()
-        print(m.migrad_ok(),m.values["mu"],np.sqrt(-m.fval))
-        
-        # initbs_flat=initbs.reshape((1,bA.shape[0]*bA.shape[1])).squeeze()
-        # initvals=np.concatenate((np.array((initmu,)),initbs_flat))
-        # minres=minimize(CalcMinusq0_new,initvals,args=(bB,bA,sigtpl))#,method='Nelder-Mead')
-        # if not minres['success']:
-        #     print("problem")
-        #     print(minres)
-        # # except:
-        # #     print("problem")
-        # #     return scores,pvalues,signifs,sigmus,sigmus
+        nparams=initvals.shape[0]
+        limits=[(0,None) for n in range(nparams)]
+        Is=range(1,nparams)
+        names=['mu']+["b%s"%i for i in Is]
+        print(A.shape,B.shape,S.shape,initvals.shape,len(names),len(limits))
+        ## Perform fit
+        CalcMinusq0_new.recompile() ## needed since change in globals
+        m=Minuit(CalcMinusq0_new,initvals,name=names)#,error=1)#,errordef=0.5)
+        # m=Minuit(negq0(A,B,S).calc_negq0,initvals,name=names)#,error=1)#,errordef=0.5)
+        m.limits=limits
+        # m.errordef=Minuit.LIKELIHOOD
+        m.errordef=Minuit.LIKELIHOOD
+        m.print_level=0
+        m.migrad()
+        if not m.valid:
+            print("WARNING: Problem in minimization")
+            continue
+        print(m.fmin)
+        # print(m.values["mu"],m.fval,np.sqrt(-m.fval))
         sigmu_tot=m.values["mu"]#minres['x'][0] # muhat from minimization
-        # b_out=minres['x'][1:].reshape(bA.shape)
-        b_out=0
+        bs=[]
+        for i in range(1,len(initbs)+1):
+            bs.append(m.values["b%s"%i])
+        b_out=np.array(bs).reshape(A.shape)
         q0=-m.fval#-minres['fun'] if sigmu_tot>0 else 0
         sigmus['tot'].append(sigmu_tot)
         scores.append(q0)
-        # ## Convert muhat to mu_1s*muhat_rest
-        # sigmu_1sA=fsolve(Calcq0MinusZ,x0=200,args=(bA,sigtpl,1))[0] # mu for 1sigma from bkg estimate
-        # sigmu_1sB=fsolve(Calcq0MinusZ,x0=200,args=(bB,sigtpl,1))[0] # mu for 1sigma from bkg estimate
-        # sigmu_restA=sigmu_tot/sigmu_1sA
-        # sigmu_restB=sigmu_tot/sigmu_1sB
-        # sigmus['1sA'].append(sigmu_1sA)
-        # sigmus['restA'].append(sigmu_restA)
-        # sigmus['1sB'].append(sigmu_1sB)
-        # sigmus['restB'].append(sigmu_restB)
-        ## Get p-values and signifs from asymptotic formula
         z=np.sqrt(q0) #if q0>0 else -np.sqrt(-q0)
         pval=1-norm.cdf(z)
         pvalues.append(pval)
         signifs.append(z)
-    return scores,pvalues,signifs,sigmus,b_out
+    return scores,pvalues,signifs,sigmus,b_out,m.nfcn

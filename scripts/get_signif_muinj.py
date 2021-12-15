@@ -122,15 +122,14 @@ def main():
         print("Starting tests")
         sigf=0.2635
         # zsigs=['0','5e-6','1e-5','5e-5','1e-4','5e-4','1e-3']
-        # zsigs=[-1,-1]+list(np.linspace(0,1e-4,21))
-        zsigs=[-1,-1]+list(np.linspace(0,1e-3,21))
         sonb=sig_tpl/bkg**0.5
         startT=timeit.default_timer()
         thisT=startT
-        # zsigs=np.linspace(0,1e-3,10)
+        zsigs=[-1,-1]+list(np.linspace(0,1e-4,21))
+        # zsigs=[-1,-1]+list(np.linspace(0,1e-3,21))
         for zsig in zsigs:
-            # selectbins=sonb>float(zsig)
-            selectbins=sig_tpl>float(zsig)
+            selectbins=sonb>float(zsig)
+            # selectbins=sig_tpl>float(zsig)
             ## Make test matrix (add signal events to bkg)
             n_sig=int(round(sigf*n_bkg/100))
             n_sig_ggh=int(round(n_sig/(1+sig_ratio)))
@@ -216,35 +215,9 @@ def main():
         #             b+=bkg[i,j]
         # print(s,b,s/np.sqrt(b))
     
-def get_matrix(data,xaxis,yaxis,add_entries=0):
-    M,_,_=np.histogram2d(data[:,0],data[:,1],bins=(xaxis,yaxis))
-    # MatrixPlot(H).showplot()
-    return M+add_entries
-    
 def get_array(columns,data_path,cuts,isSig):
     ## headers=['Lep0Pt', 'Lep0Eta', 'Lep0Phi', 'Lep1Pt', 'Lep1Eta', 'Lep1Phi', 'MET', 'METPhi', 'MLL', 'MLep0MET', 'MLep1MET', 'Mcoll', 'isSig']
-    ## cuts={column:[min,max]}, use min==max for specified value
-    headers,data=csv2np(data_path)
-    ## apply cuts
-    rows2del=[]
-    for i,row in enumerate(data):
-        for col,[m,M] in cuts.items():
-            j=headers.index(col)
-            if (m==M and data[i,j]!=m) or (m!=M and not (m<data[i,j]<M)):
-                rows2del.append(i)
-                continue
-    data=np.delete(data,rows2del,axis=0)
-    ## select only rows where last column==isSig, keep only columns specified
-    col_idxs=[headers.index(name) for name in columns]
-    data=data[np.ix_(data[:,-1]==isSig,col_idxs)]
-    return data
-
-def csv2np(fpath):
-    with open(fpath,'r') as f:
-        reader=csv.reader(f,delimiter=',')
-        headers=next(reader)
-        data=np.array(list(reader)).astype(float)
-    return headers,data
+    return get_array_fromcsv(columns,data_path,cuts,isSig)
 
 if __name__=="__main__":
     main()

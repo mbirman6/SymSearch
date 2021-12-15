@@ -424,7 +424,7 @@ def minimize_L1(bkgA,bkgB,sigtpl):
     m.migrad()
     if not m.valid:
         print("WARNING: Problem in minimization")
-        priant(Problem)
+        return None,None,None,None
     ## Get fit results
     sigmu=m.values["mu"]
     q0=-m.fval if sigmu>0 else 0
@@ -479,7 +479,7 @@ def minimize_L2(bkgA,bkgB,sigtpl):
     m.migrad()
     if not m.valid:
         print("WARNING: Problem in minimization")
-        print(Problem)
+        return None,None,None,None,None
     ## Get fit results
     sigmu=m.values["mu"]
     bs=[]
@@ -487,6 +487,9 @@ def minimize_L2(bkgA,bkgB,sigtpl):
         bs.append(m.values["b%s"%i])
     b_out=np.array(bs).reshape(S.shape)
     q0=-m.fval if sigmu>0 else 0
+    if q0<0:
+        warn("Negative q0, setting to 0",q0)
+        q0=0
     signif=np.sqrt(q0)
     pval=1-norm.cdf(signif)
     return sigmu,q0,pval,signif,b_out

@@ -19,10 +19,9 @@ def save_results(data,label,savepath):
 
 def perform_test(test,bkgtpl,sigtpl,bkgsA,bkgsB,sigtype):
     ## Avoid division by 0
-    if '1' in test.split('-')[0]:
-        posbins=(bkgsA>0)
-        bkgsA=bkgsA*posbins+1e-6*(1-posbins) # set A bins where A<=0 to 1e-6 
-    else:
+    posbins=(bkgsA>0)
+    bkgsA=bkgsA*posbins+1e-6*(1-posbins) # set A bins where A<=0 to 1e-6 
+    if '1' not in test.split('-')[0]:
         posbins=(bkgsA+bkgsB>0)
         bkgsA=bkgsA+(1e-6-bkgsB)*(1-posbins) # set A bins where A+B<=0 to 1e-6 - B such that A+B=1e-6
     sonb=sigtpl/(bkgtpl/np.sum(bkgtpl))**0.5
@@ -78,8 +77,11 @@ def perform_test(test,bkgtpl,sigtpl,bkgsA,bkgsB,sigtype):
         return multitest(test,bkgsA,bkgsB,nbins)
     ## Lik-type tests
     results=[]
-    i=0
+    i=-1
+    badidxs=[]
     for bA,bB,sbins in zip(bkgsA,bkgsB,selectbins):
+        i+=1
+        # print(i)
         bA=bA[sbins]
         bB=bB[sbins]
         # if i==0:
@@ -90,9 +92,12 @@ def perform_test(test,bkgtpl,sigtpl,bkgsA,bkgsB,sigtype):
             muhat,q0,pval,signif=minimize_L1(bA,bB,sigtpl0)
         elif test=='L2':
             muhat,q0,pval,signif,b_out=minimize_L2(bA,bB,sigtpl0)
+        if q0==None:
+            badidxs.append(i)
+            continue    
         # results.append([muhat,q0])
         results.append(signif)
-    return results
+    return results,badidxs
 
 def main(tests,datafiles,savepath="",jobidx=""):
     ## Get templates per datafile
@@ -136,11 +141,19 @@ def main(tests,datafiles,savepath="",jobidx=""):
         for test in tests:
             print(test)
             if '1' in test.split('-')[0]: # A is template, B is drawn
-                results_bkg=perform_test(test,bkgtpl,sigtpl,tplbkgsA,bkgsB,datadct[f]['sigtype'])
-                results_sigbkg=perform_test(test,bkgtpl,sigtpl,tplbkgsA,sigbkgsB,datadct[f]['sigtype'])
+                results_bkg,badidxs_bkg=perform_test(test,bkgtpl,sigtpl,tplbkgsA,bkgsB,datadct[f]['sigtype'])
+                results_sigbkg,badidxs_sigbkg=perform_test(test,bkgtpl,sigtpl,tplbkgsA,sigbkgsB,datadct[f]['sigtype'])
             else: # A and B are drawn
-                results_bkg=perform_test(test,bkgtpl,sigtpl,bkgsA,bkgsB,datadct[f]['sigtype'])
-                results_sigbkg=perform_test(test,bkgtpl,sigtpl,bkgsA,sigbkgsB,datadct[f]['sigtype'])
+                results_bkg,badidxs_bkg=perform_test(test,bkgtpl,sigtpl,bkgsA,bkgsB,datadct[f]['sigtype'])
+                results_sigbkg,badidxs_sigbkg=perform_test(test,bkgtpl,sigtpl,bkgsA,sigbkgsB,datadct[f]['sigtype'])
+            badidxs=sorted(badidxs_bkg+badidxs_sigbkg)
+            for c,idx in enumerate(badidxs):
+                if idx in badidxs_bkg and idx in badidxs_sigbkg:
+                    continue
+                if idx in badidxs_bkg:
+                    del results_sigbkg[idx-c]
+                elif idx in badidxs_sigbkg:
+                    del results_bkg[idx-c]
             ## Save
             savedata=np.array((results_bkg,results_sigbkg))
             if isslice:

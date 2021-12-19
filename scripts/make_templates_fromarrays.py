@@ -6,14 +6,17 @@ import numpy as np
 ## mystuff
 from myfunctions import *
 sys.path.insert(0,"/srv01/agrp/mattiasb/scripts/p3")
+sys.path.insert(0,"/Users/mattiasbirman/scripts/p3")
 from utils import *
 from np_utils import *
 from plots3 import *
 
 def main():
-    path='/storage/agrp/mattiasb/Public/PhenoStudy_share/arrays/'
+    # path='/storage/agrp/mattiasb/Public/PhenoStudy_share/arrays/'
+    path='../SignalChallenge/'
     # data_path_bkg=path+'me_run5.csv'
-    data_path_bkg=path+'table_me_run0.csv'
+    # data_path_bkg=path+'table_me_run0.csv'
+    data_path_bkg=path+'me_run0.csv'
     data_path_sig_ggh=path+'allsignal/table_ggH_taumu.csv'
     data_path_sig_vbf=path+'allsignal/table_vbfH_taumu.csv'
     ## Get arrays
@@ -31,6 +34,7 @@ def main():
     print("sig ratio vbf/ggh",sig_ratio)
     ## Matrix defs
     ## Lep0Pt vs Mcoll; 28*28 5GeV bins; Mcoll_min,Lep0Pt_min=30,10GeV; increase_entries is added to each bin in bkg matrix
+    nbins=28
     binsize=28*5e3/nbins
     print("Binsize",binsize)
     xaxis=[30e3+k*binsize for k in range(nbins+1)]

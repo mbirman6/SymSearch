@@ -10,11 +10,16 @@ sys.path.insert(0,"/srv01/agrp/mattiasb/scripts/p3")
 from utils import *
 from np_utils import *
 from plots3 import *
+import ui_utils as ui
+
+doload=True
+# doload=False
 
 def save_results(data,label,savepath):
     if not os.path.isdir(savepath):
         os.makedirs(savepath)
     data=np.array(data)
+    print(savepath+"/%s.npy"%label)
     np.save(savepath+"/%s.npy"%label,data)
 
 def perform_test(test,bkgtpl,sigtpl,bkgsA,bkgsB,sigtype):
@@ -74,7 +79,11 @@ def perform_test(test,bkgtpl,sigtpl,bkgsA,bkgsB,sigtype):
         nbins=np.sum(1*selectbins,axis=(1,2))
         # print(nbins[:10])
         bkgsB=bkgsB*selectbins+bkgsA*(1-selectbins)
-        return multitest(test,bkgsA,bkgsB,nbins)
+        return multitest(test,bkgsA,bkgsB,nbins),[]
+    ## sonA exp test
+    elif test=='sonA':
+        N=bkgsA.shape[0]
+        return np.sum(np.repeat(sigtpl[np.newaxis,:,:],N,axis=0)/(bkgsA)**0.5,axis=(1,2)),[]
     ## Lik-type tests
     results=[]
     i=-1
@@ -112,90 +121,129 @@ def main(tests,datafiles,savepath="",jobidx=""):
     bkgtypes=sorted(list(set([fdct['bkgtype'] for f,fdct in datadct.items()])))
     sigtypes=sorted(list(set([fdct['sigtype'] for f,fdct in datadct.items()])))
     tpldct=get_templates(bkgtypes,sigtypes)
+    abpdfs=[]
+    aspdfs=[]
+    attests=[]
+    scoredct={}
     ## Loop on datafiles
     for f in datafiles:
-        print(f)
+        samp=datadct[f]['samp']
+        # print(samp)
+        # print(f)
         ## Get the templates
         bkgtpl=tpldct['bkg_'+datadct[f]['bkgtype']]
         sigtpl=tpldct['sig_'+datadct[f]['sigtype']]
-        ## Get the data
-        if len(f.split(':'))>1: ## run only on part of the datafile
-            isslice=True
-            f0,startidx,stopidx=f.split(':')
-            startidx=int(startidx)
-            stopidx=int(stopidx)
-            data=np.load(f0)
-            bkgsB=data[0,startidx:stopidx,:,:] ## B-bkg matrices
-            sigbkgsB=data[1,startidx:stopidx,:,:] ## B-bkg+sig matrices
-        else:
-            isslice=False
-            data=np.load(f)
-            bkgsB=data[0,:,:,:] ## B-bkg matrices
-            sigbkgsB=data[1,:,:,:] ## B-bkg+sig matrices 
-        N=bkgsB.shape[0]
-        tplbkgsA=np.repeat(bkgtpl[np.newaxis,:,:],N,axis=0)
-        bkgsA=draw_fromtpl(bkgtpl,N)
-        ## Loop on tests
-        scoredct={}
-        scores=[]
-        for test in tests:
-            print(test)
-            if '1' in test.split('-')[0]: # A is template, B is drawn
-                results_bkg,badidxs_bkg=perform_test(test,bkgtpl,sigtpl,tplbkgsA,bkgsB,datadct[f]['sigtype'])
-                results_sigbkg,badidxs_sigbkg=perform_test(test,bkgtpl,sigtpl,tplbkgsA,sigbkgsB,datadct[f]['sigtype'])
-            else: # A and B are drawn
-                results_bkg,badidxs_bkg=perform_test(test,bkgtpl,sigtpl,bkgsA,bkgsB,datadct[f]['sigtype'])
-                results_sigbkg,badidxs_sigbkg=perform_test(test,bkgtpl,sigtpl,bkgsA,sigbkgsB,datadct[f]['sigtype'])
-            badidxs=sorted(badidxs_bkg+badidxs_sigbkg)
-            for c,idx in enumerate(badidxs): # remove corresponding idxs if 1 test failed btw bkgonly/sig+bkg
-                if idx in badidxs_bkg and idx in badidxs_sigbkg:
-                    continue
-                if idx in badidxs_bkg:
-                    del results_sigbkg[idx-c]
-                elif idx in badidxs_sigbkg:
-                    del results_bkg[idx-c]
-            ## Save
-            savedata=np.array((results_bkg,results_sigbkg))
-            if isslice:
-                save_results(savedata,"%s_%s.%s.%s"%(test,datadct[f]['samp'],startidx,stopidx),savepath)
+        if not doload:
+            ## Get the data
+            if len(f.split(':'))>1: ## run only on part of the datafile
+                isslice=True
+                f0,startidx,stopidx=f.split(':')
+                startidx=int(startidx)
+                stopidx=int(stopidx)
+                data=np.load(f0)
+                bkgsB=data[0,startidx:stopidx,:,:] ## B-bkg matrices
+                sigbkgsB=data[1,startidx:stopidx,:,:] ## B-bkg+sig matrices
             else:
-                save_results(savedata,"%s_%s"%(test,datadct[f]['samp']),savepath)
-            # scores.append([np.mean(results_bkg),np.mean(results_sigbkg)])
-            # s0,s1=scores[-1]
-            # print(s0,s1,s1-s0)
-            scoredct[test]=savedata
+                isslice=False
+                data=np.load(f)
+                bkgsB=data[0,:,:,:] ## B-bkg matrices
+                sigbkgsB=data[1,:,:,:] ## B-bkg+sig matrices 
+            N=bkgsB.shape[0]
+            tplbkgsA=np.repeat(bkgtpl[np.newaxis,:,:],N,axis=0)
+            bkgsA=draw_fromtpl(bkgtpl,N)
+        ## Loop on tests
+        scores=[]
+        # print(tests)
+        for test in tests:
+            # print(test)
+            fres="../dotests/merge_outputs/%s/%s_%s.npy"%(test,test,samp)
+            if doload:
+                samp=datadct[f]['samp']
+                results=np.load(fres)
+                ## PATCH if nans around
+                results_bkg=list(results[0])
+                results_sigbkg=list(results[1])
+                badidxs=[]
+                for i,r in enumerate(results_bkg):
+                    if not abs(r)>=0:
+                        badidxs.append(i)
+                for i,r in enumerate(results_sigbkg):
+                    if (not abs(r)>=0) and i not in badidxs:
+                        badidxs.append(i)
+                for c,idx in enumerate(sorted(badidxs)):
+                    del results_bkg[idx-c]
+                    del results_sigbkg[idx-c]
+            else: # perform test
+                if os.path.isfile(fres) and not ui.askyes("fres already exists, rerun? %s"%fres):
+                    continue
+                if '1' in test.split('-')[0]: # A is template, B is drawn
+                    results_bkg,badidxs_bkg=perform_test(test,bkgtpl,sigtpl,tplbkgsA,bkgsB,datadct[f]['sigtype'])
+                    results_sigbkg,badidxs_sigbkg=perform_test(test,bkgtpl,sigtpl,tplbkgsA,sigbkgsB,datadct[f]['sigtype'])
+                else: # A and B are drawn
+                    results_bkg,badidxs_bkg=perform_test(test,bkgtpl,sigtpl,bkgsA,bkgsB,datadct[f]['sigtype'])
+                    results_sigbkg,badidxs_sigbkg=perform_test(test,bkgtpl,sigtpl,bkgsA,sigbkgsB,datadct[f]['sigtype'])
+                badidxs=sorted(badidxs_bkg+badidxs_sigbkg)
+                for c,idx in enumerate(badidxs):
+                    if idx in badidxs_bkg and idx in badidxs_sigbkg:
+                        continue
+                    if idx in badidxs_bkg:
+                        del results_sigbkg[idx-c]
+                    elif idx in badidxs_sigbkg:
+                        del results_bkg[idx-c]
+            savedata=np.array((results_bkg,results_sigbkg))
+            scoredct[test+' '+samp]=savedata
+            if not doload:
+                ## Save
+                if isslice:
+                    save_results(savedata,"%s_%s.%s.%s"%(test,datadct[f]['samp'],startidx,stopidx),savepath)
+                else:
+                    save_results(savedata,"%s_%s"%(test,datadct[f]['samp']),savepath)
+                # scores.append([np.mean(results_bkg),np.mean(results_sigbkg)])
+                # s0,s1=scores[-1]
+                # print(s0,s1,s1-s0)
     
         # print()
-        # ## Get cumul pdfs
-        # tests=sorted(scoredct.keys())
-        # bpdfs=[]
-        # spdfs=[]
-        # npdf=np.random.normal(0,1,N)
-        # for test in tests:
-        #     bpdf=scoredct[test][0,:]
-        #     spdf=scoredct[test][1,:]
-        #     hplot=HistsPlot([bpdf,spdf],title=test)
-        #     hplot.make_hists()
-        #     bvals,svals=hplot.binvals
-        #     m=0
-        #     M=0
-        #     for b,s in zip(bvals,svals):
-        #         m+=min(b,s)
-        #         M+=max(b,s)
-        #     print(test,"%.3f"%(1-m/M))
-        #     # hplot.showplot()
-        #     # bpdfs.append((bpdf-np.mean(bpdf))/np.std(bpdf))
-        #     # spdfs.append((spdf-np.mean(bpdf))/np.std(bpdf))
-        #     bpdfs.append(bpdf)
-        #     spdfs.append(spdf)
-        # hplot=HistsPlot([npdf]+bpdfs+spdfs,['N(0,1)']+tests+tests)
+        ## Get cumul pdfs
+        ttests=sorted([s for s in scoredct.keys() if s.split()[1]==samp])
+        bpdfs=[]
+        spdfs=[]
+        npdf=np.random.normal(0,1,20000)
+        for ttest in ttests:
+            bpdf=scoredct[ttest][0,:]
+            spdf=scoredct[ttest][1,:]
+            hplot=HistsPlot([bpdf,spdf],title=ttest)
+            hplot.make_hists()
+            bvals,svals=hplot.binvals
+            m=0
+            M=0
+            for b,s in zip(bvals,svals):
+                m+=min(b,s)
+                M+=max(b,s)
+            print(ttest,"%.3f"%(1-m/M),bpdf.shape[0])
+            # hplot.showplot()
+            bpdfs.append((bpdf-np.mean(bpdf))/np.std(bpdf))
+            spdfs.append((spdf-np.mean(bpdf))/np.std(bpdf))
+            # bpdfs.append(bpdf)
+            # spdfs.append(spdf)
+        # hplot=HistsPlot([npdf]+bpdfs+spdfs,['N(0,1)']+ttests+ttests)
         # # hplot.cumulative=-1
-        # # hplot.normed=True
+        # hplot.normed=True
         # hplot.cumulative=0
-        # hplot.normed=0
+        # # hplot.normed=0
         # hplot.legloc='upper right'
         # # hplot.make_hists()
         # hplot.showplot()
+        abpdfs+=bpdfs
+        aspdfs+=spdfs
+        attests+=ttests
+    hplot=HistsPlot(abpdfs+aspdfs)
+    # hplot.cumulative=-1
+    hplot.normed=0
+    hplot.cumulative=0
+    # hplot.normed=0
+    hplot.legloc='upper right'
+    # hplot.make_hists()
+    hplot.showplot()
             
 if __name__=="__main__":
     if len(sys.argv)==5:
@@ -210,12 +258,22 @@ if __name__=="__main__":
         seed=40
         np.random.seed(seed) # allways same random
         ## N tests per datafile
-        N=20
+        N=20000
         ## input data to run on
-        bkgtypes=['mue-25']#,'flat-100']#,'mue-25','mue-0','flat-10000']
-        # sigtypes=['rect-1-mid']
-        sigtypes=['hlfv-mutau','rect-6-low','gaus-2-low','rect-6-high','gaus-2-high']
-        # sigtypes=['hlfv-mutau','rect-6-mid','gaus-2']#-low','gaus-2-high','hlfv-mutau']
+        bkgtypes=[
+            # 'mue-25',
+            # 'mue-0',
+            'flat-100',
+            # 'flat-10000'
+            ]
+        sigtypes=[
+            # 'hlfv-mutau',
+            # 'rect-6-low',
+            # 'gaus-2-low',
+            # 'rect-6-high',
+            # 'gaus-2-high'
+            'rect-1-low',
+            ]
         zins=[3]#,5,10]
         ltests=['L2']#,'L2']
         datafiles=[]
@@ -229,25 +287,30 @@ if __name__=="__main__":
                     continue
                 for z in zins:
                     for ltest in ltests:
-                        datafiles.append("/srv01/agrp/mattiasb/runners/SymSearch/getdata/merge_outputs/%s_%s_%ssigma%s.npy:0:%s"%(b,s,z,ltest,N))
-        ## tests-selectbins to perform
+                        # datafiles.append("/srv01/agrp/mattiasb/runners/SymSearch/getdata/merge_outputs/%s_%s_%ssigma%s.npy:0:%s"%(b,s,z,ltest,N))
+                        datafiles.append("../getdata/merge_outputs/%s_%s_%ssigma%s.npy:0:%s"%(b,s,z,ltest,N))
         tests=[
+            # 'L1-sonb.03',
+            # 'Nsigma1-win1',
+            # 'Nsigma1-win5',
             # 'Nsigma1',
-            # 'Nsigma2',
+
+            'L2-sonA.03',
+            'Nsigma2-win1',
+            'Nsigma2-win5',
+            'Nsigma2',
+            
+            
             # 'Skellam1',
             # 'Skellam2',
             # 'Nsigma1-sonb.3',
             # 'Nsigma2-sonb.3',
             # 'Skellam1-sonb.3',
             # 'Skellam2-sonb.3',
-            # 'Nsigma1-win5',
-            'Nsigma2-win5',
             # 'Nsigma2-win1',
             # 'Skellam1-win5',
             # 'Skellam2-win5',
             # 'L1',
-            'L1-sonb.03',
-            'L2-sonA.03'
             # 'LDD1-pos',
             # 'LDD2-pos',
         ]

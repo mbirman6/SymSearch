@@ -13,7 +13,8 @@ import numba as nb
 ## mystuff
 from myfunctions import *
 sys.path.insert(0,"/srv01/agrp/mattiasb/scripts/p3")
-from utils import *
+sys.path.insert(0,"/Users/mattiasbirman/scripts/p3")
+from utils import * 
 from np_utils import *
 from plots3 import *
     

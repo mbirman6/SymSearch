@@ -324,12 +324,16 @@ def negq0_L2(x):# A,B,S
     b=x[1:]
     q0=-2*np.sum(mu*S+2*b+(A+B)*(np.log(A+B)-1)-A*np.log(2*b)-B*np.log(2*(b+mu*S)))
     return -q0
-@nb.njit(parallel=False,fastmath=True)
-def q0minusZ2_L2(x):# B,S,Z
-    mu=x[0]
-    b=x[1:]
-    q0=-2*np.sum(2*(b-B)+(2*B+mu*S)*np.log(2*B+mu*S)-B*np.log(2*b)-(B+mu*S)*np.log(2*(b+mu*S)))
-    return (q0-Z**2)**2
+def q0minusZ2_L2(mu):# B,S,Z
+    q0=-2*np.sum((2*B+mu*S)*np.log(2*B+mu*S)-B*np.log(2*B)-(B+mu*S)*np.log(2*(B+mu*S)))
+    return q0-Z**2
+# @nb.njit(parallel=False,fastmath=True)
+# def q0minusZ2_L2(x):# B,S,Z
+#     mu=x[0]
+#     b=x[1:]
+#     # q0=-2*np.sum(2*(b-B)+(2*B+mu*S)*np.log(2*B+mu*S)-B*np.log(2*b)-(B+mu*S)*np.log(2*(b+mu*S)))
+#     q0=-2*np.sum(2*(B-B)+(2*B+mu*S)*np.log(2*B+mu*S)-B*np.log(2*B)-(B+mu*S)*np.log(2*(B+mu*S)))
+#     return (q0-Z**2)**2
 
 def multitest(test,A,B,nbins=784):
     ## axes for summation - A.shape=(28,28) or (N,28,28) or (N,nbins)
@@ -428,9 +432,22 @@ def minimize_L1(bkgA,bkgB,sigtpl):
         return None,None,None,None
     ## Get fit results
     sigmu=m.values["mu"]
-    q0=-m.fval if sigmu>0 else 0
+    q0=-m.fval
+    if q0<0:
+        warn("Negative q0, setting to 0",q0)
+        q0=0
     signif=np.sqrt(q0)
     pval=1-norm.cdf(signif)
+    ## 1 sided or 2 sided mu>0
+    if sigmu<0:
+        # ## 1-sided
+        # q0=0
+        # signif=0
+        # pval=0.5
+        ## 2-sided
+        q0=-q0
+        signif=-signif
+        pval=-pval
     return sigmu,q0,pval,signif
 
 def getmuin_L1(bkg,sigtpl,zin):
@@ -487,12 +504,22 @@ def minimize_L2(bkgA,bkgB,sigtpl):
     for i in range(1,len(initbs)+1):
         bs.append(m.values["b%s"%i])
     b_out=np.array(bs).reshape(S.shape)
-    q0=-m.fval if sigmu>0 else 0
+    q0=-m.fval
     if q0<0:
         warn("Negative q0, setting to 0",q0)
         q0=0
     signif=np.sqrt(q0)
     pval=1-norm.cdf(signif)
+    ## 1 sided or 2 sided mu>0
+    if sigmu<0:
+        # ## 1-sided
+        # q0=0
+        # signif=0
+        # pval=0.5
+        ## 2-sided
+        q0=-q0
+        signif=-signif
+        pval=-pval
     return sigmu,q0,pval,signif,b_out
 
 def getmuin_L2(bkg,sigtpl,zin):
@@ -506,27 +533,50 @@ def getmuin_L2(bkg,sigtpl,zin):
     B=bkg
     S=sigtpl
     Z=zin
-    ## Fit parameters initial guess
     initmu=zin*(np.sum(bkg))**0.5
-    initbs=1*bkg
-    initvals=np.concatenate((np.array((initmu,)),initbs))
-    nparams=initvals.shape[0]
-    limits=[(0,None) for n in range(nparams)]
-    Is=range(1,nparams)
-    names=['mu']+["b%s"%i for i in Is]
-    # print("getmuin_L2",Z,initmu,S.shape,len(names))
-    ## Perform fit
-    q0minusZ2_L2.recompile()
-    m=Minuit(q0minusZ2_L2,initvals,name=names)
-    m.limits=limits
-    m.errordef=Minuit.LIKELIHOOD
-    m.print_level=0
-    m.migrad()
-    if not m.valid:
-        print("WARNING: Problem in minimization")
+    sigmu=fsolve(q0minusZ2_L2,x0=initmu)[0]
+    if not np.isclose(q0minusZ2_L2(sigmu),0):
         print(Problem)
-    sigmu=m.values["mu"]
     return sigmu
+
+# def getmuin_L2(bkg,sigtpl,zin):
+#     global B
+#     global S
+#     global Z
+#     if len(sigtpl.shape)>1:
+#         nbins=sigtpl.shape[0]
+#         bkg=bkg.reshape((1,nbins**2)).squeeze(axis=0)
+#         sigtpl=sigtpl.reshape((1,nbins**2)).squeeze(axis=0)
+#     B=bkg
+#     S=sigtpl
+#     Z=zin
+#     ## Fit parameters initial guess
+#     initmu=zin*(np.sum(bkg))**0.5
+#     initbs=1*bkg
+#     initvals=np.concatenate((np.array((initmu,)),initbs))
+#     nparams=initvals.shape[0]
+#     limits=[(0,None) for n in range(nparams)]
+#     Is=range(1,nparams)
+#     names=['mu']+["b%s"%i for i in Is]
+#     # print("getmuin_L2",Z,initmu,S.shape,len(names))
+#     print(initvals.shape)
+#     print(initvals)
+#     ## Perform fit
+#     # q0minusZ2_L2.recompile()
+#     m=Minuit(q0minusZ2_L2,initvals,name=names)
+#     m.limits=limits
+#     m.errordef=Minuit.LIKELIHOOD
+#     m.print_level=0
+#     m.migrad()
+#     print(m)
+#     print(m.fval)
+#     input()
+#     if not m.valid:
+#         print("WARNING: Problem in minimization")
+#         print(Problem)
+#     sigmu=m.values["mu"]
+#     print(initmu,sigmu)
+#     return sigmu
 
 # def getmuin_L1(bkg,sigtpl,zin):
 #     global B

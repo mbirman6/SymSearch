@@ -13,16 +13,20 @@ from plots3 import *
 import ui_utils as ui
 
 doload=True
-# doload=False
+doload=False
+dosave=True
+dosave=False
 
 def save_results(data,label,savepath):
+    if not dosave:
+        return
     if not os.path.isdir(savepath):
         os.makedirs(savepath)
     data=np.array(data)
     print(savepath+"/%s.npy"%label)
     np.save(savepath+"/%s.npy"%label,data)
 
-def perform_test(test,bkgtpl,sigtpl,bkgsA,bkgsB,sigtype):
+def perform_test(test,bkgtpl,sigtpl,bkgsA,bkgsB,sigtype,bkgsBnosig):
     ## Avoid division by 0
     posbins=(bkgsA>0)
     bkgsA=bkgsA*posbins+1e-6*(1-posbins) # set A bins where A<=0 to 1e-6 
@@ -88,24 +92,37 @@ def perform_test(test,bkgtpl,sigtpl,bkgsA,bkgsB,sigtype):
     results=[]
     i=-1
     badidxs=[]
-    for bA,bB,sbins in zip(bkgsA,bkgsB,selectbins):
+    for bA,bB,sbins,bBnosig in zip(bkgsA,bkgsB,selectbins,bkgsBnosig):
+        # MatrixPlot(bB-bA).showplot()
+        # MatrixPlot(bB-bBnosig).showplot()
+        # MatrixPlot(bA).showplot()
+        # MatrixPlot(bB).showplot()
         i+=1
         # print(i)
         bA=bA[sbins]
         bB=bB[sbins]
+        # bBnosig=bBnosig[sbins]
         # if i==0:
         #     print('nbins',bA.shape)
         sigtpl0=sigtpl[sbins]
         nparams=bA.shape[0]+1
         if test=='L1':
+            # #PATCH
+            # muhat,q0,pval,signif0=minimize_L1(bBnosig,bB,sigtpl0)
+            # print("L1 signif B+s vs B = %.3f    B+s vs A = %.3f"%(signif0,signif))
             muhat,q0,pval,signif=minimize_L1(bA,bB,sigtpl0)
         elif test=='L2':
+            # #PATCH
+            # muhat,q0,pval,signif0,b_out=minimize_L2(bBnosig,bB,sigtpl0)
+            # print("L2 signif B+s vs B = %.3f    B+s vs A = %.3f"%(signif0,signif))
             muhat,q0,pval,signif,b_out=minimize_L2(bA,bB,sigtpl0)
         if q0==None:
             badidxs.append(i)
             continue    
         # results.append([muhat,q0])
         results.append(signif)
+    # print("average signif %s"%np.mean(results))
+    # exit()
     return results,badidxs
 
 def main(tests,datafiles,savepath="",jobidx=""):
@@ -133,8 +150,8 @@ def main(tests,datafiles,savepath="",jobidx=""):
         ## Get the templates
         bkgtpl=tpldct['bkg_'+datadct[f]['bkgtype']]
         sigtpl=tpldct['sig_'+datadct[f]['sigtype']]
+        ## Get the data to perform the tests
         if not doload:
-            ## Get the data
             if len(f.split(':'))>1: ## run only on part of the datafile
                 isslice=True
                 f0,startidx,stopidx=f.split(':')
@@ -157,12 +174,13 @@ def main(tests,datafiles,savepath="",jobidx=""):
         for test in tests:
             # print(test)
             fres="../dotests/merge_outputs/%s/%s_%s.npy"%(test,test,samp)
-            if doload:
+            if doload: ## load results
                 samp=datadct[f]['samp']
                 results=np.load(fres)
                 ## PATCH if nans around
                 results_bkg=list(results[0])
                 results_sigbkg=list(results[1])
+                ## PATCH
                 badidxs=[]
                 for i,r in enumerate(results_bkg):
                     if not abs(r)>=0:
@@ -173,15 +191,18 @@ def main(tests,datafiles,savepath="",jobidx=""):
                 for c,idx in enumerate(sorted(badidxs)):
                     del results_bkg[idx-c]
                     del results_sigbkg[idx-c]
-            else: # perform test
+                # print(np.mean(results_sigbkg),np.shape(results_sigbkg))
+            else: ## perform test
                 if os.path.isfile(fres) and not ui.askyes("fres already exists, rerun? %s"%fres):
                     continue
                 if '1' in test.split('-')[0]: # A is template, B is drawn
-                    results_bkg,badidxs_bkg=perform_test(test,bkgtpl,sigtpl,tplbkgsA,bkgsB,datadct[f]['sigtype'])
-                    results_sigbkg,badidxs_sigbkg=perform_test(test,bkgtpl,sigtpl,tplbkgsA,sigbkgsB,datadct[f]['sigtype'])
+                    # PATCH
+                    # results_bkg,badidxs_bkg=perform_test(test,bkgtpl,sigtpl,tplbkgsA,bkgsB,datadct[f]['sigtype'])
+                    results_sigbkg,badidxs_sigbkg=perform_test(test,bkgtpl,sigtpl,tplbkgsA,sigbkgsB,datadct[f]['sigtype'],bkgsB)
                 else: # A and B are drawn
-                    results_bkg,badidxs_bkg=perform_test(test,bkgtpl,sigtpl,bkgsA,bkgsB,datadct[f]['sigtype'])
-                    results_sigbkg,badidxs_sigbkg=perform_test(test,bkgtpl,sigtpl,bkgsA,sigbkgsB,datadct[f]['sigtype'])
+                    # PATCH
+                    # results_bkg,badidxs_bkg=perform_test(test,bkgtpl,sigtpl,bkgsA,bkgsB,datadct[f]['sigtype'])
+                    results_sigbkg,badidxs_sigbkg=perform_test(test,bkgtpl,sigtpl,bkgsA,sigbkgsB,datadct[f]['sigtype'],bkgsB)
                 badidxs=sorted(badidxs_bkg+badidxs_sigbkg)
                 for c,idx in enumerate(badidxs):
                     if idx in badidxs_bkg and idx in badidxs_sigbkg:
@@ -190,6 +211,7 @@ def main(tests,datafiles,savepath="",jobidx=""):
                         del results_sigbkg[idx-c]
                     elif idx in badidxs_sigbkg:
                         del results_bkg[idx-c]
+            ## Store results
             savedata=np.array((results_bkg,results_sigbkg))
             scoredct[test+' '+samp]=savedata
             if not doload:
@@ -221,10 +243,10 @@ def main(tests,datafiles,savepath="",jobidx=""):
                 M+=max(b,s)
             print(ttest,"%.3f"%(1-m/M),bpdf.shape[0])
             # hplot.showplot()
-            bpdfs.append((bpdf-np.mean(bpdf))/np.std(bpdf))
-            spdfs.append((spdf-np.mean(bpdf))/np.std(bpdf))
-            # bpdfs.append(bpdf)
-            # spdfs.append(spdf)
+            # bpdfs.append((bpdf-np.mean(bpdf))/np.std(bpdf))
+            # spdfs.append((spdf-np.mean(bpdf))/np.std(bpdf))
+            bpdfs.append(bpdf)
+            spdfs.append(spdf)
         # hplot=HistsPlot([npdf]+bpdfs+spdfs,['N(0,1)']+ttests+ttests)
         # # hplot.cumulative=-1
         # hplot.normed=True
@@ -236,7 +258,7 @@ def main(tests,datafiles,savepath="",jobidx=""):
         abpdfs+=bpdfs
         aspdfs+=spdfs
         attests+=ttests
-    hplot=HistsPlot(abpdfs+aspdfs)
+    hplot=HistsPlot([npdf]+abpdfs+aspdfs,['N']+attests+attests)
     # hplot.cumulative=-1
     hplot.normed=0
     hplot.cumulative=0
@@ -258,21 +280,22 @@ if __name__=="__main__":
         seed=40
         np.random.seed(seed) # allways same random
         ## N tests per datafile
-        N=20000
+        # N=20000
+        N=100
         ## input data to run on
         bkgtypes=[
-            # 'mue-25',
-            # 'mue-0',
-            'flat-100',
+            'mue-25',
+            # 'flat-100',
             # 'flat-10000'
+            # 'mue-0',
             ]
         sigtypes=[
             # 'hlfv-mutau',
-            # 'rect-6-low',
+            'rect-6-low',
             # 'gaus-2-low',
             # 'rect-6-high',
-            # 'gaus-2-high'
-            'rect-1-low',
+            # 'gaus-2-high',
+            # 'rect-1-low',
             ]
         zins=[3]#,5,10]
         ltests=['L2']#,'L2']
@@ -296,9 +319,9 @@ if __name__=="__main__":
             # 'Nsigma1',
 
             'L2-sonA.03',
-            'Nsigma2-win1',
-            'Nsigma2-win5',
-            'Nsigma2',
+            # 'Nsigma2-win1',
+            # 'Nsigma2-win5',
+            # 'Nsigma2',
             
             
             # 'Skellam1',
@@ -307,7 +330,6 @@ if __name__=="__main__":
             # 'Nsigma2-sonb.3',
             # 'Skellam1-sonb.3',
             # 'Skellam2-sonb.3',
-            # 'Nsigma2-win1',
             # 'Skellam1-win5',
             # 'Skellam2-win5',
             # 'L1',

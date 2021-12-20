@@ -84,10 +84,10 @@ def perform_test(test,bkgtpl,sigtpl,bkgsA,bkgsB,sigtype,bkgsBnosig):
         # print(nbins[:10])
         bkgsB=bkgsB*selectbins+bkgsA*(1-selectbins)
         return multitest(test,bkgsA,bkgsB,nbins),[]
-    ## sonA exp test
-    elif test=='sonA':
-        N=bkgsA.shape[0]
-        return np.sum(np.repeat(sigtpl[np.newaxis,:,:],N,axis=0)/(bkgsA)**0.5,axis=(1,2)),[]
+    # ## sonA exp test
+    # elif test=='sonA':
+    #     N=bkgsA.shape[0]
+    #     return np.sum(np.repeat(sigtpl[np.newaxis,:,:],N,axis=0)/(bkgsA)**0.5,axis=(1,2)),[]
     ## Lik-type tests
     results=[]
     i=-1
@@ -101,7 +101,7 @@ def perform_test(test,bkgtpl,sigtpl,bkgsA,bkgsB,sigtype,bkgsBnosig):
         # print(i)
         bA=bA[sbins]
         bB=bB[sbins]
-        # bBnosig=bBnosig[sbins]
+        bBnosig=bBnosig[sbins]
         # if i==0:
         #     print('nbins',bA.shape)
         sigtpl0=sigtpl[sbins]
@@ -112,10 +112,10 @@ def perform_test(test,bkgtpl,sigtpl,bkgsA,bkgsB,sigtype,bkgsBnosig):
             # print("L1 signif B+s vs B = %.3f    B+s vs A = %.3f"%(signif0,signif))
             muhat,q0,pval,signif=minimize_L1(bA,bB,sigtpl0)
         elif test=='L2':
-            # #PATCH
-            # muhat,q0,pval,signif0,b_out=minimize_L2(bBnosig,bB,sigtpl0)
-            # print("L2 signif B+s vs B = %.3f    B+s vs A = %.3f"%(signif0,signif))
+            #PATCH
+            muhat,q0,pval,signif0,b_out=minimize_L2(bBnosig,bB,sigtpl0)
             muhat,q0,pval,signif,b_out=minimize_L2(bA,bB,sigtpl0)
+            print("L2 signif B+s vs B = %.3f    B+s vs A = %.3f"%(signif0,signif))
         if q0==None:
             badidxs.append(i)
             continue    
@@ -196,8 +196,7 @@ def main(tests,datafiles,savepath="",jobidx=""):
                 if os.path.isfile(fres) and not ui.askyes("fres already exists, rerun? %s"%fres):
                     continue
                 if '1' in test.split('-')[0]: # A is template, B is drawn
-                    # PATCH
-                    # results_bkg,badidxs_bkg=perform_test(test,bkgtpl,sigtpl,tplbkgsA,bkgsB,datadct[f]['sigtype'])
+                    results_bkg,badidxs_bkg=perform_test(test,bkgtpl,sigtpl,tplbkgsA,bkgsB,datadct[f]['sigtype'])
                     results_sigbkg,badidxs_sigbkg=perform_test(test,bkgtpl,sigtpl,tplbkgsA,sigbkgsB,datadct[f]['sigtype'],bkgsB)
                 else: # A and B are drawn
                     # PATCH
@@ -310,8 +309,8 @@ if __name__=="__main__":
                     continue
                 for z in zins:
                     for ltest in ltests:
-                        # datafiles.append("/srv01/agrp/mattiasb/runners/SymSearch/getdata/merge_outputs/%s_%s_%ssigma%s.npy:0:%s"%(b,s,z,ltest,N))
-                        datafiles.append("../getdata/merge_outputs/%s_%s_%ssigma%s.npy:0:%s"%(b,s,z,ltest,N))
+                        datafiles.append("/srv01/agrp/mattiasb/runners/SymSearch/getdata/merge_outputs/%s_%s_%ssigma%s.npy:0:%s"%(b,s,z,ltest,N))
+                        # datafiles.append("../getdata/merge_outputs/%s_%s_%ssigma%s.npy:0:%s"%(b,s,z,ltest,N))
         tests=[
             # 'L1-sonb.03',
             # 'Nsigma1-win1',

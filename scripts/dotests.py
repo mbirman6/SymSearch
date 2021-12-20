@@ -74,7 +74,7 @@ def perform_test(test,bkgtpl,sigtpl,bkgsA,bkgsB,sigtype):
         nbins=np.sum(1*selectbins,axis=(1,2))
         # print(nbins[:10])
         bkgsB=bkgsB*selectbins+bkgsA*(1-selectbins)
-        return multitest(test,bkgsA,bkgsB,nbins)
+        return multitest(test,bkgsA,bkgsB,nbins),[]
     ## Lik-type tests
     results=[]
     i=-1
